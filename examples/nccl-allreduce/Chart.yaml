@@ -1,0 +1,5 @@
+# Chart.yaml
+apiVersion: v2
+name: nccl-allreduce
+description: A Helm chart to deploy nccl-allreduce-job
+version: 0.1.0

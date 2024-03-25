@@ -1,0 +1,133 @@
+apiVersion: batch.volcano.sh/v1alpha1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  minAvailable: {{ add .Values.numNodes 1 }}
+  schedulerName: volcano
+  plugins:
+    ssh: []
+    svc: []
+  tasks:
+    - replicas: 1
+      name: mpimaster
+      policies:
+        - event: TaskCompleted
+          action: CompleteJob
+      template:
+        spec:
+          serviceAccount: mpi-worker-view
+          containers:
+            - env:
+                - name: NP
+                  value: "{{ mul .Values.numNodes 8 }}"
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  HOSTFILE=/etc/volcano/mpiworker.host
+                  echo "HOSTS: $(tr '\n' ',' < $HOSTFILE)"
+                
+                  /scripts/wait-for-hosts.sh $HOSTFILE
+
+                  mkdir -p /var/run/sshd; /usr/sbin/sshd
+                  echo "HOSTS: $(cat $HOSTFILE | tr '\n' ',')"
+                  HEADNODE=$(head -n1 $HOSTFILE)
+                  TRAIN_SCRIPT=/scripts/train.sh
+                  TOPO_FILE=/workspace/ndv5-topo.xml
+
+                  export PATH=/opt/hpcx/ompi/bin:$PATH
+                  export LD_LIBRARY_PATH=/opt/hpcx/ompi/lib:$LD_LIBRARY_PATH
+
+                  mpirun --allow-run-as-root \
+                        -np $NP \
+                        --map-by ppr:8:node \
+                        --hostfile $HOSTFILE \
+                        -x LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/:/opt/hpcx/nccl_rdma_sharp_plugin/lib:$LD_LIBRARY_PATH \
+                        -x LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libnccl.so \
+                        -x NCCL_IB_PCI_RELAXED_ORDERING=1 \
+                        -x UCX_IB_PCI_RELAXED_ORDERING=on \
+                        -x UCX_MEM_EVENTS=n \
+                        -x UCX_TLS=rc \
+                        -x UCX_NET_DEVICES=mlx5_0:1 \
+                        -x CUDA_DEVICE_ORDER=PCI_BUS_ID \
+                        -x NCCL_SOCKET_IFNAME=eth0 \
+                        -x NCCL_TOPO_FILE=$TOPO_FILE \
+                        -x NCCL_MIN_NCHANNELS=32 \
+                        -x SHARP_SMX_UCX_INTERFACE=mlx5_0:1 \
+                        -x SHARP_COLL_ENABLE_SAT=1 \
+                        -x SHARP_COLL_LOG_LEVEL=3 \
+                        -x SHARP_COLL_ENABLE_PCI_RELAXED_ORDERING=1 \
+                        -x HEADNODE=$HEADNODE \
+                        -mca coll_hcoll_enable 0 \
+                        -mca pml ucx \
+                        -mca plm_rsh_no_tree_spawn 1 \
+                        -mca plm_rsh_num_concurrent 8192 \
+                        $TRAIN_SCRIPT 2>&1 | tee /workspace/mpimaster.log
+              image:  {{ .Values.image }}
+              securityContext:
+                capabilities:
+                  add: ["IPC_LOCK"]
+              name: mpimaster
+              ports:
+                - containerPort: 22
+                  name: mpijob-port
+              workingDir: /workspace
+              resources:
+                requests:
+                  cpu: 1
+              volumeMounts:
+              - mountPath: /scripts/wait-for-hosts.sh
+                name: scripts
+                subPath: train.sh
+          restartPolicy: OnFailure
+          volumes:
+          - name: scripts
+            configMap:
+              name: {{ .Release.Name }}-configmap
+              defaultMode: 0777
+    - replicas: {{ .Values.numNodes }}
+      name: mpiworker
+      template:
+        metadata:
+        spec:
+          containers:
+            - command:
+                - /bin/bash
+                - -c
+                - |
+                  mkdir -p /var/run/sshd; /usr/sbin/sshd -D;
+              image:  {{ .Values.image }}
+              securityContext:
+                capabilities:
+                  add: ["IPC_LOCK"]
+              name: mpiworker
+              ports:
+                - containerPort: 22
+                  name: mpijob-port
+              workingDir: /workspace
+              resources:
+                requests:
+                  nvidia.com/gpu: 8
+                  nvidia.com/mlnxnics: 8
+                limits:
+                  nvidia.com/gpu: 8
+                  nvidia.com/mlnxnics: 8
+              volumeMounts:
+              - mountPath: /dev/shm
+                name: shm
+              - mountPath: /scripts/train.sh
+                name: scripts
+                subPath: train.sh
+          restartPolicy: OnFailure
+          terminationGracePeriodSeconds: 0
+          volumes:
+          - name: shm
+            emptyDir:
+              medium: Memory
+              sizeLimit: 8Gi
+          - name: scripts
+            configMap:
+              name: {{ .Release.Name }}-configmap
+              defaultMode: 0777
+---

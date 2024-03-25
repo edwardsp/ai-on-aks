@@ -1,0 +1,11 @@
+# values.yaml
+image: 
+numNodes: 1
+decoderLayers: 32
+decoderEmbedDim: 4096
+decoderAttentionHeads: 32
+batchSize: 2097152
+learningRate: 0.00012
+modelParallel: 2
+useTensorBoard: false
+useAim: false

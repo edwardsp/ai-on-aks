@@ -1,0 +1,5 @@
+# Chart.yaml
+apiVersion: v2
+name: metaseq
+description: A Helm chart to run a metaseq job
+version: 0.1.0

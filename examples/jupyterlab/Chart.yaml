@@ -1,0 +1,5 @@
+# Chart.yaml
+apiVersion: v2
+name: jupyterlab
+description: A Helm chart to deploy jupyterlab
+version: 0.1.0

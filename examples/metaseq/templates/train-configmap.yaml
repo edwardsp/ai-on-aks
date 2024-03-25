@@ -1,0 +1,124 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-configmap
+data:
+  wait-for-hosts.sh: |
+    #!/bin/bash
+
+    HOSTFILE="$1"
+
+    # Function to check SSH connectivity
+    check_ssh() {
+        ssh -o BatchMode=yes -o ConnectTimeout=5 $1 exit >/dev/null 2>&1
+        return $?
+    }
+
+    # Loop until all hosts are up and SSH is working
+    for host in $(<$HOSTFILE); do
+        echo "Checking host: $host"
+        while ! check_ssh "$host"; do
+            echo "SSH not yet available on $host. Retrying in 5 seconds..."
+            sleep 5
+        done
+        echo "SSH is available on $host"
+    }
+  train.sh: |
+    #!/bin/bash
+
+    CLUSTER_SIZE=$OMPI_COMM_WORLD_SIZE
+    METHOD="barrierlesstcpr://${HEADNODE}:29400"
+    RANK=$OMPI_COMM_WORLD_RANK
+    LOCAL_RANK=$(( RANK % 8 ))
+
+    DECODER_LAYERS={{ .Values.decoderLayers | int }}
+    DECODER_EMBED_DIM={{ .Values.decoderEmbedDim | int }}
+    DECODER_ATTENTION_HEADS={{ .Values.decoderAttentionHeads | int }}
+    BATCH_SIZE={{ .Values.batchSize | int }}
+    LEARNING_RATE={{ .Values.learningRate }}
+    END_LEARNING_RATE={{ mul .Values.learningRate 0.1 }}
+    MODEL_PARALLEL={{ .Values.modelParallel | int  }}
+    SEQ_LEN=2048
+    TOTAL_GPUS=$(( $CLUSTER_SIZE / $MODEL_PARALLEL ))
+    DDP_BSZ=$(( ($BATCH_SIZE / $TOTAL_GPUS) / $SEQ_LEN ))
+    DECODER_FFN_EMBED_DIM=$(( $DECODER_EMBED_DIM * 4 ))      
+
+    echo "CLUSTER_SIZE=$CLUSTER_SIZE"
+    echo "METHOD=$METHOD"
+    echo "RANK=$RANK"
+    echo "LOCAL_RANK=$LOCAL_RANK"
+    echo "DECODER_LAYERS=$DECODER_LAYERS"
+    echo "DECODER_EMBED_DIM=$DECODER_EMBED_DIM"
+    echo "DECODER_ATTENTION_HEADS=$DECODER_ATTENTION_HEADS"
+    echo "BATCH_SIZE=$BATCH_SIZE"
+    echo "LEARNING_RATE=$LEARNING_RATE"
+    echo "END_LEARNING_RATE=$END_LEARNING_RATE"
+    echo "MODEL_PARALLEL=$MODEL_PARALLEL"
+    echo "SEQ_LEN=$SEQ_LEN"
+    echo "TOTAL_GPUS=$TOTAL_GPUS"
+    echo "DDP_BSZ=$DDP_BSZ"
+    echo "DECODER_FFN_EMBED_DIM=$DECODER_FFN_EMBED_DIM"
+
+    python3 -m metaseq.cli.train \
+        --distributed-world-size $CLUSTER_SIZE \
+        --distributed-rank $RANK \
+        --device-id $LOCAL_RANK \
+        --distributed-init-method $METHOD \
+        --distributed-no-spawn \
+        --cluster-env azure \
+        --train-subset train \
+        --valid-subset valid \
+        --ignore-unused-valid-subsets \
+        --num-workers 8 \
+        --num-workers-valid 1 \
+        --validate-interval-updates 2000 \
+        --disable-validation \
+        --save-interval-updates 0 \
+        --save-interval-epochs 0 \
+        --memory-efficient-fp16 \
+        --fp16 \
+        --ddp-backend fully_sharded \
+        --use-sharded-state \
+        --gradient-predivide-factor 16.0 \
+        --sequence-parallel \
+        --model-parallel-size $MODEL_PARALLEL \
+        --criterion vocab_parallel_cross_entropy \
+        --tensor-parallel-init-model-on-gpu \
+        --full-megatron-init \
+        --megatron-init-sigma 0.004 \
+        --activation-fn gelu \
+        --arch transformer_lm_megatron \
+        --share-decoder-input-output-embed \
+        --decoder-layers $DECODER_LAYERS \
+        --decoder-embed-dim $DECODER_EMBED_DIM \
+        --decoder-ffn-embed-dim $DECODER_FFN_EMBED_DIM \
+        --decoder-attention-heads $DECODER_ATTENTION_HEADS \
+        --decoder-learned-pos \
+        --no-scale-embedding \
+        --task dummy_lm \
+        --dict-size 51196 \
+        --tokens-per-sample $SEQ_LEN \
+        --optimizer adam \
+        --adam-betas '(0.9, 0.95)' \
+        --adam-eps 1e-08 \
+        --clip-norm 1.0 \
+        --clip-norm-type l2 \
+        --lr-scheduler polynomial_decay \
+        --lr $LEARNING_RATE \
+        --end-learning-rate $END_LEARNING_RATE \
+        --warmup-updates 50 \
+        --total-num-update 61036 \
+        --dropout 0.0 \
+        --attention-dropout 0.1 \
+        --no-emb-dropout \
+        --weight-decay 0.1 \
+        --batch-size 8 \
+        --update-freq 1 \
+        --max-update 61036 \
+        --seed 1 \
+        --log-format json \
+        --log-interval 1 \
+        --required-batch-size-multiple 1 \
+        {{ if .Values.useTensorBoard }}--tensorboard-logdir /workspace/tensorboard_logs{{ end }} \
+        {{ if .Values.useAim }}--aim-repo /workspace/aim_logs{{ end }}

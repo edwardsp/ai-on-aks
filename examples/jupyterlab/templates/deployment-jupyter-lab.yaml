@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-jupyterlab
+  labels:
+    name: jupyterlab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: jupyterlab
+  template:
+    metadata:
+      labels:
+        name: jupyterlab
+    spec:
+      securityContext:
+        runAsUser: 0
+        fsGroup: 0
+      containers:
+        - name: jupyterlab
+          image: {{ .Values.image }}
+          imagePullPolicy: IfNotPresent
+          ports:
+          - containerPort: 8888
+          command:
+            - /bin/bash
+            - -c
+            - |
+              /usr/local/bin/jupyter-lab --LabApp.token='{{ .Values.password }}' --LabApp.ip='0.0.0.0' --LabApp.allow_root=True
+          volumeMounts:
+          - mountPath: /mnt/azure
+            name: volume
+            readOnly: false
+          - mountPath: /dev/shm
+            name: shmem
+          resources:
+            requests:
+              nvidia.com/gpu: 8
+              nvidia.com/mlnxnics: 8
+            limits:
+              nvidia.com/gpu: 8
+              nvidia.com/mlnxnics: 8
+      restartPolicy: Always
+      volumes:
+      - name: volume
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-nfs
+      - emptyDir:
+          medium: Memory
+          sizeLimit: 128Gi
+        name: shmem
