@@ -1,9 +1,16 @@
+# AI on AKS
+
+This document describes how to deploy an AKS cluster with an ACR and run some AI workloads on it.
+
 ## Environment variables used throughout this document
+
+Set the following values
 ```
-export RESOURCE_GROUP=paul-h100-aks
-export LOCATION=eastus
-export CLUSTER_NAME=h100aks
-export ACR_NAME=h100acr
+export RESOURCE_GROUP=
+export LOCATION=
+export CLUSTER_NAME=
+export ACR_NAME=
+```
 
 ## Deploy the AKS cluster and ACR
 ```
