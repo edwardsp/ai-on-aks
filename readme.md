@@ -18,7 +18,20 @@ export ACR_NAME=
 ./nvinstall.sh
 ```
 
+## Install Volcano
+These are the steps to install Volcano on the AKS cluster.
+```
+kubectl apply -f https://raw.githubusercontent.com/volcano-sh/volcano/release-1.7/installer/volcano-development.yaml
+
+kubectl create serviceaccount -n default mpi-worker-view
+kubectl create rolebinding default-view --namespace default --serviceaccount default:mpi-worker-view --clusterrole view
+```
+
+Volcano jobs can be launched with MPI.  A volcano job creates a "master" pod with a hostfile available in `/etc/volcano/mpiworker.host` that can be used when launching `mpirun`.  However, the NVIDIA operator can cause timeouts when launching the job.  The examples in this repo work around this issue by waiting for `sshd` to be running on all the workers before launching the job.  This is done using bash scripting.
+
 ## Build the docker images
+
+The docker images embed the NDv5 topology file.  The topology file is used by the NCCL library to optimize communication between GPUs.  This file is located in the [azhpc-images](https://raw.githubusercontent.com/Azure/azhpc-images/master/topology/ndv5-topo.xml) repository.
 
 ### NCCL test
 ```
@@ -39,20 +52,6 @@ docker push $ACR_NAME.azurecr.io/metaseq
 ## Scale the node pool
 ```
 az aks nodepool scale --resource-group $RESOURCE_GROUP --cluster-name $CLUSTER_NAME --name ndv5 --node-count 2 
-```
-
-
-## Topo file
-```
-wget https://raw.githubusercontent.com/Azure/azhpc-images/master/topology/ndv5-topo.xml
-```
-
-## Install Volcano
-```
-kubectl apply -f https://raw.githubusercontent.com/volcano-sh/volcano/release-1.7/installer/volcano-development.yaml
-
-kubectl create serviceaccount -n default mpi-worker-view
-kubectl create rolebinding default-view --namespace default --serviceaccount default:mpi-worker-view --clusterrole view
 ```
 
 ## Helm examples
