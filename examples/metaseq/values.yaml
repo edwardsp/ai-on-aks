@@ -7,5 +7,6 @@ decoderAttentionHeads: 32
 batchSize: 2097152
 learningRate: 0.00012
 modelParallel: 2
+numUpdate: 61036
 useTensorBoard: false
 useAim: false

@@ -127,3 +127,29 @@ Reference: [Metaseq source](https://github.com/facebookresearch/metaseq/blob/mai
 | 30b    | 48       | 7168     | 56      | 128    | 4194304    | 0.0001   | 2              |
 | 66b    | 64       | 9216     | 72      | 128    | 2097152    | 0.00008  | 8              |
 | 175b   | 96       | 12288    | 96      | 128    | 2097152    | 0.00003  | 8              |
+
+
+# Enable NVME on nodes
+
+This uses code from the [AKS NVME SSD Provisioner](https://github.com/ams0/aks-nvme-ssd-provisioner) project.
+
+Build the docker image:
+
+```
+cd nccl-test
+az acr login -n $ACR_NAME
+docker build -t $ACR_NAME.azurecr.io/aks-nvme-ssd-provisioner .
+docker push $ACR_NAME.azurecr.io/aks-nvme-ssd-provisioner
+```
+
+Deploy the manifests:
+
+```
+helm install aks-nvme-ssd-provisioner ./examples/aks-nvme-ssd-provisioner --set image="$ACR_NAME.azurecr.io/aks-ssd-nvme-provisioner"
+```
+
+Apply to the node pool:
+
+```
+
+```

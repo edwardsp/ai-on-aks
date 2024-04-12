@@ -51,7 +51,7 @@ az acr create \
 # Create an AKS cluster with InfiniBand support
 az aks create \
   -g $RESOURCE_GROUP \
-  --node-resource-group ${RESOURCE_GchmodROUP}-nrg \
+  --node-resource-group ${RESOURCE_GROUP}-nrg \
   -n $CLUSTER_NAME \
   --enable-managed-identity \
   --node-count 2 \

@@ -39,10 +39,11 @@ data:
     LEARNING_RATE={{ .Values.learningRate }}
     END_LEARNING_RATE={{ mul .Values.learningRate 0.1 }}
     MODEL_PARALLEL={{ .Values.modelParallel | int  }}
+    NUM_UPDATE={{ .Values.numUpdate | int }}
     SEQ_LEN=2048
-    TOTAL_GPUS=$(( $CLUSTER_SIZE / $MODEL_PARALLEL ))
-    DDP_BSZ=$(( ($BATCH_SIZE / $TOTAL_GPUS) / $SEQ_LEN ))
-    DECODER_FFN_EMBED_DIM=$(( $DECODER_EMBED_DIM * 4 ))      
+    #TOTAL_GPUS=$CLUSTER_SIZE
+    #DDP_BSZ=$(( ($BATCH_SIZE / $TOTAL_GPUS) / $SEQ_LEN ))
+    DECODER_FFN_EMBED_DIM=$(( $DECODER_EMBED_DIM * 4 ))
 
     echo "CLUSTER_SIZE=$CLUSTER_SIZE"
     echo "METHOD=$METHOD"
@@ -56,8 +57,6 @@ data:
     echo "END_LEARNING_RATE=$END_LEARNING_RATE"
     echo "MODEL_PARALLEL=$MODEL_PARALLEL"
     echo "SEQ_LEN=$SEQ_LEN"
-    echo "TOTAL_GPUS=$TOTAL_GPUS"
-    echo "DDP_BSZ=$DDP_BSZ"
     echo "DECODER_FFN_EMBED_DIM=$DECODER_FFN_EMBED_DIM"
 
     python3 -m metaseq.cli.train \
@@ -81,7 +80,7 @@ data:
         --ddp-backend fully_sharded \
         --use-sharded-state \
         --gradient-predivide-factor 16.0 \
-        --sequence-parallel \
+        {{ if gt .Values.modelParallel 1 }}--sequence-parallel{{ end }} \
         --model-parallel-size $MODEL_PARALLEL \
         --criterion vocab_parallel_cross_entropy \
         --tensor-parallel-init-model-on-gpu \
@@ -108,14 +107,14 @@ data:
         --lr $LEARNING_RATE \
         --end-learning-rate $END_LEARNING_RATE \
         --warmup-updates 50 \
-        --total-num-update 61036 \
+        --total-num-update $NUM_UPDATE \
         --dropout 0.0 \
         --attention-dropout 0.1 \
         --no-emb-dropout \
         --weight-decay 0.1 \
-        --batch-size 8 \
+        --batch-size $BATCH_SIZE \
         --update-freq 1 \
-        --max-update 61036 \
+        --max-update $NUM_UPDATE \
         --seed 1 \
         --log-format json \
         --log-interval 1 \

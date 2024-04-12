@@ -1,0 +1,5 @@
+# Chart.yaml
+apiVersion: v2
+name: aks-nvme-ssd-provisioner
+description: Deploy manifests for NVMe provisioner
+version: 0.1.0

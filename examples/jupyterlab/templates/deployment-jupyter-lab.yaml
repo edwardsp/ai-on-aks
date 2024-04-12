@@ -34,6 +34,8 @@ spec:
             readOnly: false
           - mountPath: /dev/shm
             name: shmem
+          - name: scratch
+            mountPath: /scratch
           resources:
             requests:
               nvidia.com/gpu: 8
@@ -50,3 +52,7 @@ spec:
           medium: Memory
           sizeLimit: 128Gi
         name: shmem
+      - name: scratch
+        hostPath:
+          path: /pv-disks/scratch
+          type: Directory
