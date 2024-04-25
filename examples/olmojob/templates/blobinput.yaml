@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  annotations:
+    pv.kubernetes.io/provisioned-by: blob.csi.azure.com
+  name: pv-blob-input
+spec:
+  capacity:
+    storage: 8192Gi
+  accessModes:
+    - ReadOnlyMany
+  persistentVolumeReclaimPolicy: Retain  # If set as "Delete" container would be removed after pvc deletion
+  storageClassName: azureblob-fuse-premium
+  mountOptions:
+    - -o allow_other
+    - --block-cache
+    - --block-cache-path=/mnt/blobfuse
+    - --block-cache-block-size=4
+    - --block-cache-disk-size=102400
+    - --block-cache-disk-timeout=604800
+    - --block-cache-pool-size=1024
+    - --block-cache-parallelism=128
+    - --block-cache-prefetch=0
+    - --block-cache-prefetch-on-open=false
+    - --use-adls=false
+    #- -o allow_other
+    #- --use-adls=false
+    #- --file-cache-timeout=604800
+    #- --tmp-path=/mnt/blobfuse
+    #- --cache-size-mb=819200
+    #- --use-adls=false
+    #- --tmp-path=/pv-disks/blobfuse
+    #- --cache-size-mb=10485760
+  csi:
+    driver: blob.csi.azure.com
+    volumeHandle: "{{ .Values.storageAccount }}_{{ .Values.containerName }}"
+    volumeAttributes:
+      protocol: fuse2
+      storageAccount: "{{ .Values.storageAccount }}"
+      containerName: "{{ .Values.containerName }}"
+      use-adls: "false"
+    nodeStageSecretRef:
+      name: "{{ .Values.storageAccount }}-{{ .Values.containerName }}-sas-token"
+      namespace: default
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-blob-input
+spec:
+  accessModes:
+    - ReadOnlyMany
+  resources:
+    requests:
+      storage: 8192Gi
+  volumeName: pv-blob-input
+  storageClassName: azureblob-fuse-premium

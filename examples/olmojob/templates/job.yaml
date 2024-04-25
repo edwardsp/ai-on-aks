@@ -1,0 +1,98 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  completions: {{ .Values.numNodes }}
+  parallelism: {{ .Values.numNodes }}
+  completionMode: Indexed
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      containers:
+        - name: olmonode
+          image: {{ .Values.image }}
+          securityContext:
+            capabilities:
+              add: ["IPC_LOCK"]
+          volumeMounts:
+            - mountPath: /dev/shm
+              name: shmem
+            - name: scratch
+              mountPath: /scratch
+            - name: blobinput
+              mountPath: "/inputdata"
+              readOnly: true
+          ports:
+            - containerPort: 22
+              name: mpijob-port
+            - containerPort: 29500
+              name: rdzv-port
+          resources:
+            requests:
+              nvidia.com/gpu: 8
+              nvidia.com/mlnxnics: 8
+            limits:
+              nvidia.com/gpu: 8
+              nvidia.com/mlnxnics: 8
+          workingDir: /opt/OLMo
+          command: 
+            - /bin/bash
+            - -c
+            - |
+              rm -rf $SCRATCH_DIR/checkpoints
+              mkdir -p $SCRATCH_DIR/checkpoints
+              torchrun \
+                --nproc-per-node 8 \
+                --nnodes {{ .Values.numNodes }} \
+                --rdzv-backend c10d \
+                --rdzv-id 1234 \
+                --rdzv-endpoint {{ .Release.Name }}-0.{{ .Release.Name }}-service:29500 \
+                scripts/train.py \
+                configs/official/OLMo-1B.yaml
+          env:
+            - name: SCRATCH_DIR
+              value: /scratch
+            - name: WANDB_MODE
+              value: offline
+            - name: NCCL_IB_PCI_RELAXED_ORDERING
+              value: "1"
+            - name: NCCL_SOCKET_IFNAME
+              value: eth0
+            - name: NCCL_TOPO_FILE
+              value: /etc/ndv5-topo.xml
+            - name: NCCL_MIN_NCHANNELS
+              value: "32"
+            - name: UCX_IB_PCI_RELAXED_ORDERING
+              value: "on"
+            - name: UCX_MEM_EVENTS
+              value: "n"
+            - name: UCX_TLS
+              value: rc
+            - name: UCX_NET_DEVICES
+              value: mlx5_0:1
+            - name: CUDA_DEVICE_ORDER
+              value: PCI_BUS_ID
+            - name: SHARP_SMX_UCX_INTERFACE
+              value: mlx5_0:1
+            - name: SHARP_COLL_ENABLE_SAT
+              value: "1"
+            - name: SHARP_COLL_LOG_LEVEL
+              value: "3"
+            - name: SHARP_COLL_ENABLE_PCI_RELAXED_ORDERING
+              value: "1"
+      subdomain: "{{ .Release.Name }}-service"
+      restartPolicy: Never
+      volumes:
+      - emptyDir:
+          medium: Memory
+          sizeLimit: 128Gi
+        name: shmem
+      - name: scratch
+        hostPath:
+          path: /pv-disks/scratch
+          type: Directory
+      - name: blobinput
+        persistentVolumeClaim:
+           claimName: pvc-blob-input
+  backoffLimit: 0 # Do not retry creating job if error
