@@ -5,7 +5,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteMany
-  storageClassName: azurefile-premium-nfs
+  storageClassName: {{ .Release.Name }}-azurefile-premium-nfs
   resources:
     requests:
       storage: {{ .Values.fsSize }}Ti

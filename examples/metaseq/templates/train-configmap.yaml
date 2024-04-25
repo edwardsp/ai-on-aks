@@ -21,9 +21,9 @@ data:
         while ! check_ssh "$host"; do
             echo "SSH not yet available on $host. Retrying in 5 seconds..."
             sleep 5
-        done
-        echo "SSH is available on $host"
-    }
+      done
+      echo "SSH is available on $host"
+    done
   train.sh: |
     #!/bin/bash
 
@@ -41,8 +41,8 @@ data:
     MODEL_PARALLEL={{ .Values.modelParallel | int  }}
     NUM_UPDATE={{ .Values.numUpdate | int }}
     SEQ_LEN=2048
-    #TOTAL_GPUS=$CLUSTER_SIZE
-    #DDP_BSZ=$(( ($BATCH_SIZE / $TOTAL_GPUS) / $SEQ_LEN ))
+    TOTAL_GPUS=$((CLUSTER_SIZE / MODEL_PARALLEL))
+    DDP_BSZ=$(( (BATCH_SIZE / TOTAL_GPUS) / SEQ_LEN ))
     DECODER_FFN_EMBED_DIM=$(( $DECODER_EMBED_DIM * 4 ))
 
     echo "CLUSTER_SIZE=$CLUSTER_SIZE"
@@ -57,6 +57,8 @@ data:
     echo "END_LEARNING_RATE=$END_LEARNING_RATE"
     echo "MODEL_PARALLEL=$MODEL_PARALLEL"
     echo "SEQ_LEN=$SEQ_LEN"
+    echo "TOTAL_GPUS=$TOTAL_GPUS"
+    echo "DDP_BSZ=$DDP_BSZ"
     echo "DECODER_FFN_EMBED_DIM=$DECODER_FFN_EMBED_DIM"
 
     python3 -m metaseq.cli.train \
@@ -112,7 +114,7 @@ data:
         --attention-dropout 0.1 \
         --no-emb-dropout \
         --weight-decay 0.1 \
-        --batch-size $BATCH_SIZE \
+        --batch-size 8 \
         --update-freq 1 \
         --max-update $NUM_UPDATE \
         --seed 1 \

@@ -44,7 +44,6 @@ spec:
                         --map-by ppr:8:node \
                         --hostfile $HOSTFILE \
                         -x LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/:/opt/hpcx/nccl_rdma_sharp_plugin/lib:$LD_LIBRARY_PATH \
-                        -x LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libnccl.so \
                         -x NCCL_IB_PCI_RELAXED_ORDERING=1 \
                         -x UCX_IB_PCI_RELAXED_ORDERING=on \
                         -x UCX_MEM_EVENTS=n \
@@ -77,11 +76,17 @@ spec:
                 requests:
                   cpu: 1
               volumeMounts:
+              - mountPath: /dev/shm
+                name: shm
               - mountPath: /scripts/wait-for-hosts.sh
                 name: scripts
-                subPath: train.sh
+                subPath: wait-for-hosts.sh
           restartPolicy: OnFailure
           volumes:
+          - name: shm
+            emptyDir:
+              medium: Memory
+              sizeLimit: 8Gi
           - name: scripts
             configMap:
               name: {{ .Release.Name }}-configmap
