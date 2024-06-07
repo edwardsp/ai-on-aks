@@ -18,14 +18,14 @@ spec:
           volumeMounts:
             - mountPath: /dev/shm
               name: shmem
-            - name: scratch
+            - name: localdisk
               mountPath: /scratch
             - name: blobinput
               mountPath: "/inputdata"
               readOnly: true
           ports:
-            - containerPort: 22
-              name: mpijob-port
+            - containerPort: 43800
+              name: aim-port
             - containerPort: 29500
               name: rdzv-port
           resources:
@@ -40,6 +40,12 @@ spec:
             - /bin/bash
             - -c
             - |
+              #while ! nslookup {{ .Release.Name }}-0.{{ .Release.Name }}-service >/dev/null 2>&1; do 
+              #  echo "Waiting for name resolution to rdzv endpoint to be available..."
+              #  sleep 5 # Wait for 5 seconds before retrying
+              #done
+              #sleep 1000
+              sleep 10
               rm -rf $SCRATCH_DIR/checkpoints
               mkdir -p $SCRATCH_DIR/checkpoints
               torchrun \
@@ -49,10 +55,11 @@ spec:
                 --rdzv-id 1234 \
                 --rdzv-endpoint {{ .Release.Name }}-0.{{ .Release.Name }}-service:29500 \
                 scripts/train.py \
-                configs/official/OLMo-1B.yaml
+                  configs/official/OLMo-1B.yaml {{ if .Values.stopAt }} --stop_at={{ .Values.stopAt }} {{ end }}
+              sleep 3600
           env:
             - name: SCRATCH_DIR
-              value: /scratch
+              value: "/scratch/{{ .Release.Name }}"
             - name: WANDB_MODE
               value: offline
             - name: NCCL_IB_PCI_RELAXED_ORDERING
@@ -88,11 +95,10 @@ spec:
           medium: Memory
           sizeLimit: 128Gi
         name: shmem
-      - name: scratch
-        hostPath:
-          path: /pv-disks/scratch
-          type: Directory
       - name: blobinput
         persistentVolumeClaim:
-           claimName: pvc-blob-input
+           claimName: "{{ .Release.Name }}-pvc-blob-input"
+      - name: localdisk
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-pvc-localdisk
   backoffLimit: 0 # Do not retry creating job if error
