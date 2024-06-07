@@ -253,16 +253,18 @@ docker push $ACR_NAME.azurecr.io/metaseq
 
 #### Launching a Metaseq Job
 
+This will run a single node and 1.3B model:
+
 ```
 helm install metaseq \
     ./examples/metaseq \
     --set image=$ACR_NAME.azurecr.io/metaseq \
-    --set numNodes=2 \
-    --set decoderLayers=40 \
-    --set decoderEmbedDim=5120 \
-    --set decoderAttentionHeads=40 \
-    --set batchSize=4194304 \
-    --set learningRate=0.0001 \
+    --set numNodes=1 \
+    --set decoderLayers=24 \
+    --set decoderEmbedDim=2048 \
+    --set decoderAttentionHeads=32 \
+    --set batchSize=1048576 \
+    --set learningRate=0.0002 \
     --set modelParallel=2
 ```
 
@@ -405,11 +407,47 @@ helm install health-check ./examples/health-check --set numNodes=1
 
 ### Node Labeler
 
+This daemonset has been created to identify the node in AKS when reporting any issues. Information is attached to nodes using labels.
+
+Azure has key-value pair files to share information between the host and the guest on Hyper-V. The /var/lib/hyperv/.kvp_pool_3 is read and all the information is added to the node with the hyperv/ prefix.
+
+#### Install the Node Labeler
+
+```
+helm install node-labeler ./examples/node-labeler
+```
+
+#### Check the Node Labels
+
+Once installed, the hyperv information can be seen as follows:
+
+```
+$ kubectl get node <INSERT-NODE-NAME> --show-labels | tr ',' '\n' |grep hyperv
+hyperv/HostName=XXX000000000000
+hyperv/HostingSystemEditionId=168
+hyperv/HostingSystemNestedLevel=0
+hyperv/HostingSystemOsMajor=10
+hyperv/HostingSystemOsMinor=0
+hyperv/HostingSystemProcessorArchitecture=9
+hyperv/HostingSystemProcessorIdleStateMax=0
+hyperv/HostingSystemProcessorThrottleMax=100
+hyperv/HostingSystemProcessorThrottleMin=100
+hyperv/HostingSystemSpMajor=0
+hyperv/HostingSystemSpMinor=0
+hyperv/PhysicalHostName=XXX000000000000
+hyperv/PhysicalHostNameFullyQualified=XXX000000000000
+hyperv/VirtualMachineDynamicMemoryBalancingEnabled=0
+hyperv/VirtualMachineId=DC44D3EB-FA17-4AAB-AE16-E5C5352CB236
+hyperv/VirtualMachineName=dfc3f25e-632a-4fb6-8ec8-faece24dcc10
+```
+
 ### Local NVME Provisioner
+
+The NDv5 have 8 NVME driver.  This creates a RAID 0 of the NVME drives to be used in AKS.  This example is based on [local persistent volumes](https://github.com/Azure/kubernetes-volume-drivers/tree/master/local) with the addition of creating a RAID containing all of the NVME devices on a VM.
 
 #### Build the Local NVME Provisioner Container Image
 
-This is required as the 
+This is required to add packages to create a RAID.
 
 ```
 cd docker/local-nvme-provisioner
@@ -418,13 +456,13 @@ docker build -t $ACR_NAME.azurecr.io/local-nvme-provisioner .
 docker push $ACR_NAME.azurecr.io/local-nvme-provisioner
 ```
 
-Deploy the manifests:
+#### Install the Local NVME Provisioner
 
 ```
 helm install aks-nvme-ssd-provisioner ./examples/aks-nvme-ssd-provisioner --set image="$ACR_NAME.azurecr.io/aks-nvme-ssd-provisioner"
 ```
 
-Apply to the node pool:
+#### Apply to the node pool
 
 ```
 az aks nodepool update -g $RESOURCE_GROUP --cluster-name $CLUSTER_NAME -n ndv5 --labels aks-local-ssd=true
@@ -470,10 +508,3 @@ export PATH=$HOME/bin:$PATH
 ```
 
 
-## Todo
-
-* LLM finetune
-* Flyte
-
-* NPD
-* Draino

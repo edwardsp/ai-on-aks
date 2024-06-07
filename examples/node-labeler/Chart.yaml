@@ -1,0 +1,5 @@
+# Chart.yaml
+apiVersion: v2
+name: node-labeler
+description: Label nodes with their physical ID on Azure
+version: 1.0.0

@@ -1,0 +1,3 @@
+# values.yaml
+image: mcr.microsoft.com/aznhc/aznhc-nv:latest
+numNodes: 1
