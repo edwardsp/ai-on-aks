@@ -3,7 +3,7 @@ ARG FROM_IMAGE_NAME=ubuntu
 FROM ${FROM_IMAGE_NAME}
 
 RUN apt update && apt install -y \
-    git python3 python3-pip vim wget \
+    git python3 python3-pip vim wget dnsutils \
     infiniband-diags libibverbs-dev librdmacm-dev libibmad-dev opensm ibverbs-utils
 
 RUN pip install --upgrade pip

@@ -1,0 +1,5 @@
+# Chart.yaml
+apiVersion: v2
+name: local-nvme-scratch
+description: Creates a RAID0 scratch space using all local NVMe drives
+version: 0.1.0

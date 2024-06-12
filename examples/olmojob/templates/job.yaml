@@ -18,7 +18,7 @@ spec:
           volumeMounts:
             - mountPath: /dev/shm
               name: shmem
-            - name: localdisk
+            - name: scratch
               mountPath: /scratch
             - name: blobinput
               mountPath: "/inputdata"
@@ -40,12 +40,10 @@ spec:
             - /bin/bash
             - -c
             - |
-              #while ! nslookup {{ .Release.Name }}-0.{{ .Release.Name }}-service >/dev/null 2>&1; do 
-              #  echo "Waiting for name resolution to rdzv endpoint to be available..."
-              #  sleep 5 # Wait for 5 seconds before retrying
-              #done
-              #sleep 1000
-              sleep 10
+              while ! nslookup {{ .Release.Name }}-0.{{ .Release.Name }}-service >/dev/null 2>&1; do 
+                echo "Waiting for name resolution to rdzv endpoint to be available..."
+                sleep 5 # Wait for 5 seconds before retrying
+              done
               rm -rf $SCRATCH_DIR/checkpoints
               mkdir -p $SCRATCH_DIR/checkpoints
               torchrun \
@@ -98,7 +96,8 @@ spec:
       - name: blobinput
         persistentVolumeClaim:
            claimName: "{{ .Release.Name }}-pvc-blob-input"
-      - name: localdisk
-        persistentVolumeClaim:
-          claimName: {{ .Release.Name }}-pvc-localdisk
+      - name: scratch
+        hostPath:
+          path: /pv-disks/scratch
+          type: Directory
   backoffLimit: 0 # Do not retry creating job if error

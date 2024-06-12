@@ -1,0 +1,5 @@
+# Chart.yaml
+apiVersion: v2
+name: AKS Node Health Check
+description: A Helm chart to run health checks and label nodes based on the result
+version: 0.1.0

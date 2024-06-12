@@ -34,8 +34,8 @@ spec:
             readOnly: false
           - mountPath: /dev/shm
             name: shmem
-          - mountPath: /mnt/local
-            name: localdisk
+          - mountPath: /scratch
+            name: scratch
           resources:
             requests:
               nvidia.com/gpu: 8
@@ -52,18 +52,7 @@ spec:
           medium: Memory
           sizeLimit: 128Gi
         name: shmem
-      - name: localdisk
-        persistentVolumeClaim:
-          claimName: {{ .Release.Name }}-pvc-localdisk
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: {{ .Release.Name }}-pvc-localdisk
-spec:
-  storageClassName: local-disk
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 100Gi
+      - name: scratch
+        hostPath:
+          path: /pv-disks/scratch
+          type: Directory

@@ -2,6 +2,6 @@
 image: 
 numNodes: 1
 trainingConfig: configs/official/OLMo-1B.yaml
-storageAccount: aibenchdata
-containerName: olmo-data
+storageAccount: 
+containerName: 
 stopAt:

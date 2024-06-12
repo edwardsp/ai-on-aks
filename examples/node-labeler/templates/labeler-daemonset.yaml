@@ -59,10 +59,15 @@ spec:
         command: ["/bin/sh", "-c"] 
         args:
           - |
-            for kv in $(cat /var/lib/hyperv/.kvp_pool_3 | sed 's/\x0/ /g;s/  */ /g'  | sed -E 's/([^ ]+) ([^ ]+)/\1=\2\n/g; s/ ([^ ]+)$/=\1/'); do
+            for kv in $(cat /var/lib/hyperv/.kvp_pool_3 | sed 's/\x0/ /g;s/  */ /g' | sed -E 's/([^ ]+) ([^ ]+)/\1=\2\n/g; s/ ([^ ]+)$/=\1/'); do
               echo $kv
-              kubectl label node "$NODE_NAME" "hyperv/$kv" --overwrite 
+              kubectl label node "$NODE_NAME" "hyperv/$kv" --overwrite
             done
+
+            pkey=$(cat /sys/class/infiniband/mlx5_*/ports/1/pkeys/* 2>/dev/null | grep 0x8 | sort -u)
+            if [ -n "$pkey" ]; then
+              kubectl label node "$NODE_NAME" "ib/pkey=$pkey" --overwrite
+            fi
       volumes:
       - name: host-data
         hostPath:

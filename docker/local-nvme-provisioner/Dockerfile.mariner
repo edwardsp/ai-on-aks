@@ -1,7 +1,0 @@
-FROM mcr.microsoft.com/cbl-mariner/base/core:2.0.20240520
-
-RUN  tdnf install -y nvme-cli mdadm
-COPY aks-nvme-ssd-provisioner.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/aks-nvme-ssd-provisioner.sh
-
-ENTRYPOINT ["aks-nvme-ssd-provisioner.sh"]

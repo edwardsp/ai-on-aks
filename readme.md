@@ -405,6 +405,19 @@ Run the tests as follows:
 helm install health-check ./examples/health-check --set numNodes=1
 ```
 
+### Health Checks 2
+
+Build the docker image:
+
+```
+cd docker/aksnhc
+az acr login -n $ACR_NAME
+docker build -t $ACR_NAME.azurecr.io/aksnhc .
+docker push $ACR_NAME.azurecr.io/aksnhc
+```
+
+
+
 ### Node Labeler
 
 This daemonset has been created to identify the node in AKS when reporting any issues. Information is attached to nodes using labels.
@@ -441,31 +454,33 @@ hyperv/VirtualMachineId=DC44D3EB-FA17-4AAB-AE16-E5C5352CB236
 hyperv/VirtualMachineName=dfc3f25e-632a-4fb6-8ec8-faece24dcc10
 ```
 
-### Local NVME Provisioner
+### Local NVME Scratch
 
-The NDv5 have 8 NVME driver.  This creates a RAID 0 of the NVME drives to be used in AKS.  This example is based on [local persistent volumes](https://github.com/Azure/kubernetes-volume-drivers/tree/master/local) with the addition of creating a RAID containing all of the NVME devices on a VM.
+The NDv5 have 8 NVME drives.  This creates a RAID 0 of the NVME drives on the host.  This needs to be passed through with `hostPath` to the containers.
 
-#### Build the Local NVME Provisioner Container Image
+> Note: originally there was a version based on [local persistent volumes](https://github.com/Azure/kubernetes-volume-drivers/tree/master/local) with the addition of creating a RAID containing all of the NVME devices on a VM.  The issue was creating a separate PVC for each node in a job.
+
+#### Build the Local NVME Scratch Image
 
 This is required to add packages to create a RAID.
 
 ```
-cd docker/local-nvme-provisioner
+cd docker/local-nvme-scratch
 az acr login -n $ACR_NAME
-docker build -t $ACR_NAME.azurecr.io/local-nvme-provisioner .
-docker push $ACR_NAME.azurecr.io/local-nvme-provisioner
+docker build -t $ACR_NAME.azurecr.io/local-nvme-scratch .
+docker push $ACR_NAME.azurecr.io/local-nvme-scratch
 ```
 
 #### Install the Local NVME Provisioner
 
 ```
-helm install aks-nvme-ssd-provisioner ./examples/aks-nvme-ssd-provisioner --set image="$ACR_NAME.azurecr.io/aks-nvme-ssd-provisioner"
+helm install local-nvme-scratch ./examples/local-nvme-scratch --set image="$ACR_NAME.azurecr.io/local-nvme-scratch"
 ```
 
 #### Apply to the node pool
 
 ```
-az aks nodepool update -g $RESOURCE_GROUP --cluster-name $CLUSTER_NAME -n ndv5 --labels aks-local-ssd=true
+az aks nodepool update -g $RESOURCE_GROUP --cluster-name $CLUSTER_NAME -n ndv5 --labels local-nvme-scratch=true
 ```
 
 ## Troubleshooting

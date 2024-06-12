@@ -1,5 +1,0 @@
-# Chart.yaml
-apiVersion: v2
-name: local-nvme-provisioner
-description: A Helm chart to deploy a demonset that will create a raid volume for nvme devices
-version: 0.1.0
