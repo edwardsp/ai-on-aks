@@ -223,7 +223,7 @@ az aks nodepool scale --resource-group $RESOURE_GROUP --cluster-name $CLUSTER_NA
 | Node Labeler           | Debug             | Daemonset   | N/A             | N/A                  |
 | Local NVME Provisioner | Storage           | Daemonset   | N/A             | N/A                  |
 
-The images for the examples are available in the `examples` directory.  Each example will give instructions for building and deploying the image.  The examples that require multi-node will embed the topology file into the image.  Currently only the NDv5 nodes are supported without modification.   This file is located in the [azhpc-images](https://raw.githubusercontent.com/Azure/azhpc-images/master/topology/ndv5-topo.xml) repository.
+The images for the examples are available in the `docker` directory.  Each example will give instructions for building and deploying the image.  The examples that require multi-node will embed the topology file into the image.  Currently only the NDv5 nodes are supported without modification.   This file is located in the [azhpc-images](https://raw.githubusercontent.com/Azure/azhpc-images/master/topology/ndv5-topo.xml) repository.
 
 ### Metaseq
 
