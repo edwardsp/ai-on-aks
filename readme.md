@@ -397,17 +397,44 @@ This was run on 1, 2 and 4 nodes.
 
 ### Health Checks
 
-This runs the health checks on the nodes.  This is using the [AzureHPC health checks](https://github.com/Azure/azurehpc-health-checks/tree/main).  A container is [available](https://mcr.microsoft.com/en-us/product/aznhc/aznhc-nv/tags) in the Microsoft Artefact Registry.  The helm chart to run the tests in the repo uses that container although the test config is created to use the device naming for AKS.
+The health checks are used to check the health of the nodes.  This is using the [AzureHPC health checks](https://github.com/Azure/azurehpc-health-checks/tree/main).  A container is [available](https://mcr.microsoft.com/en-us/product/aznhc/aznhc-nv/tags) in the Microsoft Artefact Registry.  This container does require an updated config file to run in AKS due to the device naming.
 
-Run the tests as follows:
+#### Running the Health Checks
+
+The `example/healthcheck` contains an example where the health checks are just run.  The results of the health checks can be seen in the output.  Run as follows:
 
 ```
 helm install health-check ./examples/health-check --set numNodes=1
 ```
 
-### Health Checks 2
+#### Running the Health Checks with Actions
 
-Build the docker image:
+The `example/aksnhc` has an example that will run the tests and perform actions based on the results.  The test output is added as an annotation to the node and, in the event of a failed test, the node have the `aznhc=failed:NoSchedule` taint applied.  This requires building an image since this requires `kubectl`.  The image is built as follows:
+
+```
+cd docker/aksnhc
+az acr login -n $ACR_NAME
+docker build -t $ACR_NAME.azurecr.io/aksnhc .
+docker push $ACR_NAME.azurecr.io/aksnhc
+```
+
+Run as follows:
+
+```
+helm install aksnhc ./examples/aksnhc --set numNodes=1,image=$ACR_NAME.azurecr.io/aksnhc
+```
+
+> Note: this creates a service account with the required permissions to apply taints/annotaions to the nodes.  For simpicity this is added per job but a single account could be used.
+
+View the taints on the nodes with the following command:
+
+```
+kubectl get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints
+```
+
+### Health Checks and 
+
+The image required for this is using the Build the docker image:
 
 ```
 cd docker/aksnhc

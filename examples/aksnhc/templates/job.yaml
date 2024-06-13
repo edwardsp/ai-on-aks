@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: aksnhc-sa
+  name: {{ .Release.Name }}-aksnhc-sa
   namespace: default
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: aksnhc-role
+  name: {{ .Release.Name }}-aksnhc-role
 rules:
 - apiGroups: [""] # Core API group
   resources: ["nodes"]
@@ -16,14 +16,14 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: aksnhc-rolebinding
+  name: {{ .Release.Name }}-aksnhc-rolebinding
 subjects:
 - kind: ServiceAccount
-  name: aksnhc-sa
+  name: {{ .Release.Name }}-aksnhc-sa
   namespace: default
 roleRef:
   kind: ClusterRole
-  name: aksnhc-role
+  name: {{ .Release.Name }}-aksnhc-role
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: batch/v1
@@ -37,7 +37,7 @@ spec:
   ttlSecondsAfterFinished: 300
   template:
     spec:
-      serviceAccountName: aksnhc-sa
+      serviceAccountName: {{ .Release.Name }}-aksnhc-sa
       containers:
         - name: healthcheck
           image: {{ .Values.image }}
