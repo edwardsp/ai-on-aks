@@ -432,19 +432,6 @@ View the taints on the nodes with the following command:
 kubectl get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints
 ```
 
-### Health Checks and 
-
-The image required for this is using the Build the docker image:
-
-```
-cd docker/aksnhc
-az acr login -n $ACR_NAME
-docker build -t $ACR_NAME.azurecr.io/aksnhc .
-docker push $ACR_NAME.azurecr.io/aksnhc
-```
-
-
-
 ### Node Labeler
 
 This daemonset has been created to identify the node in AKS when reporting any issues. Information is attached to nodes using labels.
