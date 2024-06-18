@@ -409,7 +409,7 @@ helm install health-check ./examples/health-check --set numNodes=1
 
 #### Running the Health Checks with Actions
 
-The `example/aksnhc` has an example that will run the tests and perform actions based on the results.  The test output is added as an annotation to the node and, in the event of a failed test, the node have the `aznhc=failed:NoSchedule` taint applied.  This requires building an image since this requires `kubectl`.  The image is built as follows:
+The `example/aksnhc` has an example that will run the tests and perform actions based on the results.  The test output is added as an annotation to the node and, in the event of a failed test, the node have the `aznhc=failed:NoExecute` taint applied (`NoExecute` will evict current containers that will ensure a new node if an initContainer is restarted).  This requires building an image since this requires `kubectl`.  The image is built as follows:
 
 ```
 cd docker/aksnhc
@@ -431,6 +431,16 @@ View the taints on the nodes with the following command:
 ```
 kubectl get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints
 ```
+
+#### Example volcano job with Health Checks in the init container
+
+Follow the instructions in the previous example to build the `aksnhc` container.  The example sets the `check_nccl_allreduce` threshold to be much higher (479.7) that will cause failures in order to test (remove the `sed` script from the initContainer when using for real cases).  Run the test as follows:
+
+```
+helm install nccl-allreduce-2n-healthcheck ./examples/nccl-allreduce-with-healthcheck --set image=$ACR_NAME.azurecr.io/nccltest,numNodes=2,hcImage=$ACR_NAME.azurecr.io/aksnhc
+```
+
+> Note: this has two images - one for the NCCL and the other for the healthcheck.
 
 ### Node Labeler
 
