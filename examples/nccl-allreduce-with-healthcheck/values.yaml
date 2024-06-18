@@ -1,0 +1,4 @@
+# values.yaml
+hcImage:
+image: 
+numNodes: 4

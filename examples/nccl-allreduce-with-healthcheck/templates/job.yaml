@@ -1,0 +1,188 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Release.Name }}-aksnhc-sa
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-aksnhc-role
+rules:
+- apiGroups: [""] # Core API group
+  resources: ["nodes"]
+  verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Name }}-aksnhc-rolebinding
+subjects:
+- kind: ServiceAccount
+  name: {{ .Release.Name }}-aksnhc-sa
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: {{ .Release.Name }}-aksnhc-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch.volcano.sh/v1alpha1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  minAvailable: {{ add .Values.numNodes 1 }}
+  schedulerName: volcano
+  plugins:
+    ssh: []
+    svc: []
+  tasks:
+    - replicas: 1
+      name: mpimaster
+      policies:
+        - event: TaskCompleted
+          action: CompleteJob
+      template:
+        spec:
+          containers:
+            - env:
+                - name: NP
+                  value: "{{ mul .Values.numNodes 8 }}"
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  HOSTFILE=/etc/volcano/mpiworker.host
+                  echo "HOSTS: $(cat $HOSTFILE | tr '\n' ',')"
+                
+                  # Function to check SSH connectivity
+                  check_ssh() {
+                      ssh -o BatchMode=yes -o ConnectTimeout=5 $1 exit >/dev/null 2>&1
+                      return $?
+                  }
+
+                  # Loop until all hosts are up and SSH is working
+                  for host in $(cat $HOSTFILE); do
+                      echo "Checking host: $host"
+                      while ! check_ssh "$host"; do
+                          echo "SSH not yet available on $host. Retrying in 5 seconds..."
+                          sleep 5
+                      done
+                      echo "SSH is available on $host"
+                  done
+
+                  mkdir -p /var/run/sshd; /usr/sbin/sshd
+                  mpirun \
+                    --allow-run-as-root \
+                    -np $NP \
+                    -npernode 8 \
+                    --bind-to numa \
+                    --map-by ppr:8:node \
+                    -hostfile $HOSTFILE \
+                    -x SHARP_SMX_UCX_INTERFACE=mlx5_0:1 \
+                    -x LD_LIBRARY_PATH \
+                    -mca plm_rsh_no_tree_spawn 1 \
+                    -mca plm_rsh_num_concurrent 800 \
+                    -mca coll_hcoll_enable 0 \
+                    -x UCX_TLS=rc \
+                    -x UCX_NET_DEVICES=mlx5_0:1 \
+                    -x CUDA_DEVICE_ORDER=PCI_BUS_ID \
+                    -x NCCL_SOCKET_IFNAME=eth0 \
+                    -x NCCL_DEBUG=warn \
+                    -x NCCL_NET_GDR_LEVEL=5 \
+                    -x NCCL_MIN_NCHANNELS=32 \
+                    -x NCCL_TOPO_FILE=/workspace/ndv5-topo.xml \
+                    -x SHARP_COLL_ENABLE_SAT=1 \
+                    -x SHARP_COLL_LOG_LEVEL=3 \
+                    -x SHARP_COLL_ENABLE_PCI_RELAXED_ORDERING=1 \
+                    -x NCCL_COLLNET_ENABLE=1 \
+                    -x NCCL_ALGO=CollnetChain,NVLS \
+                    /workspace/nccl-tests/build/all_reduce_perf -b1K -f 2 -g1 -e 16G
+              image: {{ .Values.image }}
+              securityContext:
+                capabilities:
+                  add: ["IPC_LOCK"]
+              name: mpimaster
+              ports:
+                - containerPort: 22
+                  name: mpijob-port
+              workingDir: /workspace
+              resources:
+                requests:
+                  cpu: 1
+          restartPolicy: OnFailure
+    - replicas: {{ .Values.numNodes }}
+      name: mpiworker
+      template:
+        metadata:
+        spec:
+          serviceAccount: {{ .Release.Name }}-aksnhc-sa
+          initContainers:
+            - name: healthcheck
+              image: {{ .Values.hcImage }}
+              imagePullPolicy: Always
+              securityContext:
+                capabilities:
+                  add: ["IPC_LOCK"]
+              env:
+                - name: NODE_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: spec.nodeName
+              volumeMounts:
+                - mountPath: /dev/shm
+                  name: shm
+                - mountPath: /azure-nhc/syslog
+                  name: syslog-volume
+                  readOnly: true 
+              resources:
+                requests:
+                  nvidia.com/gpu: 8
+                  nvidia.com/mlnxnics: 8
+                limits:
+                  nvidia.com/gpu: 8
+                  nvidia.com/mlnxnics: 8
+              workingDir: /azure-nhc
+              command: 
+                - /bin/bash
+                - -c
+                - |
+                  sed -i 's/check_nccl_allreduce 460.0/check_nccl_allreduce 479.7/g' /azure-nhc/conf/aznhc.conf
+                  /azure-nhc/run-healthcheck.sh
+          containers:
+            - command:
+                - /bin/bash
+                - -c
+                - |
+                  mkdir -p /var/run/sshd; /usr/sbin/sshd -D;
+              image: {{ .Values.image }}
+              securityContext:
+                capabilities:
+                  add: ["IPC_LOCK"]
+              name: mpiworker
+              ports:
+                - containerPort: 22
+                  name: mpijob-port
+              workingDir: /workspace
+              resources:
+                requests:
+                  nvidia.com/gpu: 8
+                  nvidia.com/mlnxnics: 8
+                limits:
+                  nvidia.com/gpu: 8
+                  nvidia.com/mlnxnics: 8
+              volumeMounts:
+              - mountPath: /dev/shm
+                name: shm
+          restartPolicy: OnFailure
+          terminationGracePeriodSeconds: 0
+          volumes:
+          - name: shm
+            emptyDir:
+              medium: Memory
+              sizeLimit: 8Gi
+          - name: syslog-volume
+            hostPath:
+              path: /var/log/syslog
+              type: File
+---

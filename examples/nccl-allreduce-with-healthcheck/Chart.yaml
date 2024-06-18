@@ -1,0 +1,5 @@
+# Chart.yaml
+apiVersion: v2
+name: nccl-allreduce-with-healthcheck
+description: A Helm chart to deploy nccl-allreduce-job with a healthcheck
+version: 0.1.0
