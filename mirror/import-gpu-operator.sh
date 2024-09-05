@@ -3,8 +3,10 @@
 # get script directory
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 
+export git_tag=v24.6.1
+
 git_repo=https://github.com/NVIDIA/gpu-operator.git
-git_branch=release-23.9
+git_branch=$git_tag
 
 # log in to acr
 az acr login -n $ACR_NAME
@@ -16,8 +18,13 @@ TMP_DIR=$(mktemp -d)
 git clone -b $git_branch $git_repo
 cd gpu-operator/deployments/gpu-operator
 
-chart_version=$(yq .version Chart.yaml)
-image_tag_version=$(yq .appVersion Chart.yaml)
+gpu_driver_version=$(yq .driver.version gpu-operator/deployments/gpu-operator/values.yaml)
+
+yq eval '.version = env(git_tag)' -i Chart.yaml
+yq eval '.appVersion = env(git_tag)' -i Chart.yaml
+
+chart_version=$git_tag
+image_tag_version=$git_tag
 
 TEMP_FILE=$(mktemp)
 $SCRIPT_DIR/get_repositories.py > "$TEMP_FILE"
@@ -52,7 +59,7 @@ helm push gpu-operator-${chart_version}.tgz oci://$ACR_NAME.azurecr.io/helm
 popd
 rm -rf "$TMP_DIR"
 
-for img in nvcr.io/nvidia/driver:535.86.10-ubuntu22.04; do
+for img in nvcr.io/nvidia/driver:${gpu_driver_version}-ubuntu22.04; do
     docker pull $img
     docker tag $img $ACR_NAME.azurecr.io/$img
     docker push $ACR_NAME.azurecr.io/$img

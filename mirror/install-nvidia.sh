@@ -34,6 +34,5 @@ helm upgrade -i --wait \
   -n nvidia-operator \
   --set nfd.enabled=false \
   --set driver.enabled=true \
-  --set driver.version="535.86.10" \
   --set driver.rdma.enabled=true \
   --set toolkit.enabled=true
