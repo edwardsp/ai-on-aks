@@ -1,0 +1,5 @@
+# Chart.yaml
+apiVersion: v2
+name: healthcheck
+description: A Helm chart to run health checks
+version: 0.1.0

@@ -74,7 +74,7 @@ az aks create \
   --node-count 2 \
   --generate-ssh-keys \
   --location $LOCATION \
-  --node-vm-size Standard_D2s_v3 \
+  --node-vm-size standard_d4ads_v5 \
   --nodepool-name system \
   --os-sku Ubuntu \
   --attach-acr $ACR_NAME
@@ -404,7 +404,7 @@ The health checks are used to check the health of the nodes.  This is using the 
 The `example/healthcheck` contains an example where the health checks are just run.  The results of the health checks can be seen in the output.  Run as follows:
 
 ```
-helm install health-check ./examples/health-check --set numNodes=1
+helm install health-check ./examples/healthcheck --set numNodes=1
 ```
 
 #### Running the Health Checks with Actions
@@ -441,6 +441,25 @@ helm install nccl-allreduce-2n-healthcheck ./examples/nccl-allreduce-with-health
 ```
 
 > Note: this has two images - one for the NCCL and the other for the healthcheck.
+
+#### Reporting a bad node with GHR
+
+The `example/ghr` has an example that will report a node that has failed the health check through Guest Health Reporting.  The image is built as follows:
+
+```
+cd docker/ghr
+az acr login -n $ACR_NAME
+docker build -t $ACR_NAME.azurecr.io/ghr .
+docker push $ACR_NAME.azurecr.io/ghr
+```
+
+Run as follows:
+
+```
+helm install ghr-node ./examples/ghr-node --set image=$ACR_NAME.azurecr.io/ghr,nodeName=<INSERT-NODE-NAME>
+```
+
+Once a node has been successfully reported with GHR, wait 15 minutes and replace the node.
 
 ### Node Labeler
 

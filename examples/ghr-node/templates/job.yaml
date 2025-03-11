@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Release.Name }}-ghr-sa
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-ghr-role
+rules:
+- apiGroups: [""] # Core API group
+  resources: ["nodes"]
+  verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Name }}-ghr-rolebinding
+subjects:
+- kind: ServiceAccount
+  name: {{ .Release.Name }}-ghr-sa
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: {{ .Release.Name }}-ghr-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      serviceAccountName: {{ .Release.Name }}-ghr-sa
+      nodeSelector:
+        kubernetes.io/hostname: "{{ .Values.nodeName }}"
+      tolerations:
+        - key: "aznhc"
+          operator: "Equal"
+          value: "failed"
+          effect: "NoExecute"
+      containers:
+        - name: ghrnode
+          image: {{ .Values.image }}
+          imagePullPolicy: Always
+          securityContext:
+            capabilities:
+              add: ["IPC_LOCK"]
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          volumeMounts:
+            - mountPath: /dev/shm
+              name: shmem
+            - name: host-data
+              mountPath: /var/lib/hyperv
+          workingDir: /azure-nhc
+          command: 
+            - /bin/bash
+            - -c
+            - |
+              NHC_LOG=healthcheck.log
+              kubectl get node $NODE_NAME -o json | jq -r '.metadata.annotations."aznhc-results"' > $NHC_LOG
+              cat $NHC_LOG
+              ./sendghr.sh -f $NHC_LOG
+      restartPolicy: Never
+      volumes:
+      - emptyDir:
+          medium: Memory
+          sizeLimit: 128Gi
+        name: shmem
+      - name: host-data
+        hostPath:
+          path: /var/lib/hyperv
+  backoffLimit: 0 # Do not retry creating job if error
