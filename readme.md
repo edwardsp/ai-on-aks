@@ -444,7 +444,7 @@ helm install nccl-allreduce-2n-healthcheck ./examples/nccl-allreduce-with-health
 
 #### Reporting a bad node with GHR
 
-The `example/ghr` has an example that will report a node that has failed the health check through Guest Health Reporting.  The image is built as follows:
+The `example/ghr-node` has an example that will report a node that has failed the health check through Guest Health Reporting.  The image is built as follows:
 
 ```
 cd docker/ghr
@@ -453,11 +453,13 @@ docker build -t $ACR_NAME.azurecr.io/ghr .
 docker push $ACR_NAME.azurecr.io/ghr
 ```
 
-Run as follows:
+The image will use the health check log that is an annotation on the node.  Run as follows:
 
 ```
 helm install ghr-node ./examples/ghr-node --set image=$ACR_NAME.azurecr.io/ghr,nodeName=<INSERT-NODE-NAME>
 ```
+
+Note: substitute the `<INSERT-NODE-NAME>` with the name of the node you want to report.
 
 Once a node has been successfully reported with GHR, wait 15 minutes and replace the node.
 
