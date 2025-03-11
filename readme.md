@@ -444,6 +444,11 @@ helm install nccl-allreduce-2n-healthcheck ./examples/nccl-allreduce-with-health
 
 #### Reporting a bad node with GHR
 
+**Pre-requisites**
+
+* The subscription must have Guest Health Reporting enabled.
+* The identity for the node pool must have the "Impact Reporter" role assigned to it.
+
 The `example/ghr-node` has an example that will report a node that has failed the health check through Guest Health Reporting.  The image is built as follows:
 
 ```
